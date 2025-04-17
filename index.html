@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Automotriz Alemana</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9f9f9;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 1rem;
+      background: #000;
+      color: #fff;
+    }
+
+    #logo {
+      height: 50px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .search {
+      padding: 1rem;
+      text-align: center;
+    }
+
+    #busqueda {
+      width: 60%;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .carousel img {
+      width: 100%;
+      display: block;
+    }
+
+    .info {
+      padding: 0.75rem;
+    }
+
+    .info h3 {
+      margin: 0 0 0.5rem 0;
+    }
+
+    .info p {
+      margin: 0.25rem 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img id="logo" src="" alt="Automotriz Alemana" />
+    <h1>Catálogo de Autos</h1>
+  </header>
+
+  <div class="search">
+    <input type="text" id="busqueda" placeholder="Buscar por ID..." />
+  </div>
+
+  <div class="grid" id="catalogo"></div>
+
+  <script>
+    const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzxj8oDhn7fiBCBDNAZGxfbDZxEU0NniOq6nhkDNLqwzppPwy8bhWa4caW-qo6H1M7SWg/exec';
+
+    function crearCard(auto) {
+      return \`
+        <div class="card">
+          <div class="carousel">
+            \${auto.Fotos.map(f => \`<img src="\${f}" alt="Foto auto \${auto.Id}" />\`).join('')}
+          </div>
+          <div class="info">
+            <h3>Auto #\${auto.Id}</h3>
+          </div>
+        </div>
+      \`;
+    }
+
+    function cargarCatalogo(autos) {
+      const contenedor = document.getElementById('catalogo');
+      contenedor.innerHTML = autos.map(crearCard).join('');
+    }
+
+    function filtrarAutos(autos, query) {
+      const q = query.toLowerCase();
+      return autos.filter(auto => auto.Id.includes(q));
+    }
+
+    function cargarLogo(url) {
+      document.getElementById('logo').src = url;
+    }
+
+    fetch(SHEET_URL)
+      .then(res => res.json())
+      .then(data => {
+        console.log("Datos recibidos:", data);
+
+        const logo = data.logo;
+        const autos = [];
+
+        for (const key in data) {
+          if (key !== 'logo') {
+            autos.push({
+              Id: key,
+              Fotos: data[key]
+            });
+            console.log("Auto", key, "tiene", data[key].length, "foto(s).");
+          }
+        }
+
+        cargarLogo(logo);
+        cargarCatalogo(autos);
+
+        document.getElementById('busqueda').addEventListener('input', e => {
+          const filtrados = filtrarAutos(autos, e.target.value);
+          cargarCatalogo(filtrados);
+        });
+      });
+  </script>
+</body>
+</html>
