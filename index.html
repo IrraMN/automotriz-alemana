@@ -6,10 +6,11 @@
   <title>Automotriz Alemana</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f9f9f9;
+      background-color: #f4f4f4;
+      color: #333;
     }
 
     header {
@@ -43,25 +44,37 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 1rem;
       padding: 1rem;
     }
 
     .card {
       background: white;
-      border-radius: 10px;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .carousel {
+      position: relative;
+      overflow: hidden;
     }
 
     .carousel img {
       width: 100%;
+      display: none;
+      transition: opacity 0.3s ease-in-out;
+    }
+
+    .carousel img.active {
       display: block;
     }
 
     .info {
-      padding: 0.75rem;
+      padding: 1rem;
     }
 
     .info h3 {
@@ -70,6 +83,25 @@
 
     .info p {
       margin: 0.25rem 0;
+    }
+
+    .dots {
+      display: flex;
+      justify-content: center;
+      margin: 0.5rem 0;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #bbb;
+      cursor: pointer;
+    }
+
+    .dot.active {
+      background: #333;
     }
   </style>
 </head>
@@ -80,80 +112,95 @@
   </header>
 
   <div class="search">
-    <input type="text" id="busqueda" placeholder="Buscar por ID..." />
+    <input type="text" id="busqueda" placeholder="Buscar por marca, modelo o ID..." />
   </div>
 
   <div class="grid" id="catalogo"></div>
 
-  <!-- Imagen de prueba para verificar visibilidad de imagenes desde GDrive -->
-  <div style="display: none;">
-    <img src="https://drive.google.com/uc?export=view&id=131HaYrBcclRFNhBcdvogLX7mzW5PMJDk" alt="Prueba logo visible" width="100" />
-  </div>
-
   <script>
-    const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxcQ6WUq7wJOKssv5ebkb7dp-EBBrwQlSWvmYakbmAhg8T_1J5RruAcBk-2OsN7cXii/exec';
+    const SHEET_URL = 'https://opensheet.elk.sh/1ZB1H2JQV31v_8DtNLsnRWTIWOChX7XYqVGWvQLzbKOo/Catalogo';
+    const IMAGES_URL = 'https://script.google.com/macros/s/AKfycbxcQ6WUq7wJOKssv5ebkb7dp-EBBrwQlSWvmYakbmAhg8T_1J5RruAcBk-2OsN7cXii/exec';
+
+    let autos = [];
 
     function crearCard(auto) {
+      const fotosHTML = auto.Fotos.map((foto, i) => `<img src="${foto}" class="${i === 0 ? 'active' : ''}" loading="lazy"/>`).join('');
+      const dotsHTML = auto.Fotos.map((_, i) => `<span class="dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`).join('');
+
       return `
         <div class="card">
           <div class="carousel">
-            ${auto.Fotos.map(f => `<img src="${f}" alt="Foto auto ${auto.Id}" loading="lazy"/>`).join('')}
+            ${fotosHTML}
+            <div class="dots">${dotsHTML}</div>
           </div>
           <div class="info">
-            <h3>Auto #${auto.Id}</h3>
+            <h3>${auto.Marca} ${auto.Modelo}</h3>
+            <p><strong>ID:</strong> ${auto.ID}</p>
+            <p><strong>Precio:</strong> $${auto.Precio}</p>
+            <p><strong>Año:</strong> ${auto.Anio}</p>
+            <p><strong>Color:</strong> ${auto.Color}</p>
+            <p><strong>Transmisión:</strong> ${auto.Transmision}</p>
           </div>
         </div>
       `;
     }
 
-    function cargarCatalogo(autos) {
-      const contenedor = document.getElementById('catalogo');
-      contenedor.innerHTML = autos.map(crearCard).join('');
+    function actualizarCarruseles() {
+      document.querySelectorAll('.carousel').forEach(carousel => {
+        const imgs = carousel.querySelectorAll('img');
+        const dots = carousel.querySelectorAll('.dot');
+        dots.forEach(dot => {
+          dot.addEventListener('click', () => {
+            const i = Number(dot.dataset.index);
+            imgs.forEach((img, idx) => img.classList.toggle('active', idx === i));
+            dots.forEach((d, idx) => d.classList.toggle('active', idx === i));
+          });
+        });
+      });
     }
 
-    function filtrarAutos(autos, query) {
+    function cargarCatalogo(lista) {
+      const contenedor = document.getElementById('catalogo');
+      contenedor.innerHTML = lista.map(crearCard).join('');
+      actualizarCarruseles();
+    }
+
+    function filtrarAutos(lista, query) {
       const q = query.toLowerCase();
-      return autos.filter(auto => auto.Id.toLowerCase().includes(q));
+      return lista.filter(auto =>
+        auto.Marca.toLowerCase().includes(q) ||
+        auto.Modelo.toLowerCase().includes(q) ||
+        auto.ID.toLowerCase().includes(q)
+      );
     }
 
     function cargarLogo(url) {
       if (url && typeof url === 'string') {
         document.getElementById('logo').src = url;
-      } else {
-        console.warn("Logo inválido o no proporcionado:", url);
       }
     }
 
-    fetch(SHEET_URL)
-      .then(res => res.json())
-      .then(data => {
-        console.log("Datos recibidos:", data);
+    Promise.all([
+      fetch(SHEET_URL).then(r => r.json()),
+      fetch(IMAGES_URL).then(r => r.json())
+    ]).then(([sheetData, imageData]) => {
+      const logo = imageData.logo;
+      cargarLogo(logo);
 
-        const logo = data.logo;
-        const autos = [];
+      autos = sheetData.map(auto => ({
+        ...auto,
+        Fotos: imageData[auto.ID] || []
+      }));
 
-        for (const key in data) {
-          if (key !== 'logo') {
-            const fotos = Array.isArray(data[key]) ? data[key] : [];
-            console.log(`Auto ${key} tiene ${fotos.length} foto(s).`);
-            autos.push({
-              Id: key,
-              Fotos: fotos
-            });
-          }
-        }
+      cargarCatalogo(autos);
 
-        cargarLogo(logo);
-        cargarCatalogo(autos);
-
-        document.getElementById('busqueda').addEventListener('input', e => {
-          const filtrados = filtrarAutos(autos, e.target.value);
-          cargarCatalogo(filtrados);
-        });
-      })
-      .catch(err => {
-        console.error("Error al cargar los datos:", err);
+      document.getElementById('busqueda').addEventListener('input', e => {
+        const filtrados = filtrarAutos(autos, e.target.value);
+        cargarCatalogo(filtrados);
       });
+    }).catch(err => {
+      console.error("Error al cargar los datos:", err);
+    });
   </script>
 </body>
 </html>
